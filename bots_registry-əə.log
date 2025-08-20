@@ -487,3 +487,44 @@ You can run this as a separate service (or combine it with the Flask engine, if 
 
 
 #There will be additional details on integrating advanced indexing, splitting the responsibilities into microservices, and further refining the Telegram bot command structure.
+[2025-08-20T22:31:53] Scanning for bots in /home/runner/work/NeuronLabs/NeuronLabs/bots
+Registering bot: cloud-librarian
+  Path: /home/runner/work/NeuronLabs/NeuronLabs/bots/cloud-librarian
+  SHA256: 
+[2025-08-20T22:32:12] Scanning for bots in /home/runner/work/NeuronLabs/NeuronLabs/bots
+Registering bot: cloud-librarian
+  Path: /home/runner/work/NeuronLabs/NeuronLabs/bots/cloud-librarian
+  SHA256: 
+[2025-08-20T22:32:34] Scanning for bots in /home/runner/work/NeuronLabs/NeuronLabs/bots
+Registering bot: cloud-librarian-bot
+  Path: /home/runner/work/NeuronLabs/NeuronLabs/bots/cloud-librarian-bot
+  SHA256: 70f7236ff218e760eeec09ddd0fb601372fe863a6f713b45e2695dcaf80adb28
+cloud-librarian v1.0.0 - Automated code library management with OneDrive integration - audit passed
+  Components: Flask API, Telegram Bot, Docker support, rclone integration
+  Services: Code organization, search, backup, sync, indexing
+  Dependencies: Python 3.9+, Flask, rclone, docker (optional)
+Registering bot: docker-manager-bot
+  Path: /home/runner/work/NeuronLabs/NeuronLabs/bots/docker-manager-bot
+  SHA256: 04aaaa3950847ca246c53f63e47c3cd637eb5e035ce924e9ed0b728801815e0f
+docker-manager v1.0.0 - Automated Docker container and image management - audit passed
+  Features: Container lifecycle, image building, compose orchestration
+  Operations: Build, run, stop, cleanup, logs, monitoring
+  Requirements: Docker Engine, python3, docker-py
+Registering bot: git-workflow-bot
+  Path: /home/runner/work/NeuronLabs/NeuronLabs/bots/git-workflow-bot
+  SHA256: 9dd590ba8e9a35277bc094d657f42ac66ef187f842e1a761ada66184765933be
+git-workflow v1.0.0 - Automated Git operations and workflow management - audit passed
+  Features: Branch management, conventional commits, automated versioning
+  Operations: Init, branch, commit, merge, tag, status, version bump
+  Standards: Conventional commits, semantic versioning
+Registering bot: task-automation-bot
+  Path: /home/runner/work/NeuronLabs/NeuronLabs/bots/task-automation-bot
+  SHA256: afed05c95b484f40095561ed9b69598c82b435486254945b98e27828c995e204
+task-automation v1.0.0 - Automated development task execution and project management - audit passed
+  Features: Project scaffolding, dependency management, code formatting, testing
+  Languages: Python, JavaScript, TypeScript, Go, Rust
+  Tools: pip, npm, black, prettier, pytest, jest
+Registering bot: test_bot
+  Path: /home/runner/work/NeuronLabs/NeuronLabs/bots/test_bot
+  SHA256: 484c8a8881a73cca48afd75798bb02e2d4ffad45ff58395f68ef1168ca077f48
+Test bot v1.0 - audit passed

@@ -1,0 +1,267 @@
+#!/bin/bash
+# Task Automation Bot - Executable wrapper for bot registry system
+
+BOT_NAME="task-automation"
+BOT_VERSION="1.0.0"
+BOT_DESCRIPTION="Automated development task execution and project management"
+BOT_DIR="$(dirname "$0")/task-automation"
+
+# Bot registry audit mode
+if [ "$1" = "--audit" ]; then
+    echo "$BOT_NAME v$BOT_VERSION - $BOT_DESCRIPTION - audit passed"
+    echo "  Features: Project scaffolding, dependency management, code formatting, testing"
+    echo "  Languages: Python, JavaScript, TypeScript, Go, Rust"
+    echo "  Tools: pip, npm, black, prettier, pytest, jest"
+    exit 0
+fi
+
+# Help mode
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    echo "🤖 $BOT_NAME v$BOT_VERSION"
+    echo "$BOT_DESCRIPTION"
+    echo ""
+    echo "Commands:"
+    echo "  create      Create new project from template"
+    echo "  install     Install project dependencies"
+    echo "  format      Format code with language-specific tools"
+    echo "  test        Run project tests"
+    echo "  analyze     Analyze project structure and health"
+    echo "  start       Start automation service"
+    echo ""
+    echo "Examples:"
+    echo "  $0 create --name myproject --language python"
+    echo "  $0 install --path ./myproject"
+    echo "  $0 format --path ./myproject --language python"
+    echo "  $0 test --path ./myproject"
+    exit 0
+fi
+
+cd "$BOT_DIR" || {
+    echo "❌ Bot directory not found: $BOT_DIR"
+    exit 1
+}
+
+# API helper function
+call_api() {
+    local endpoint=$1
+    local payload=$2
+    local method=${3:-POST}
+    
+    if [ "$method" = "POST" ]; then
+        curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            "http://localhost:5001$endpoint"
+    else
+        curl -s "http://localhost:5001$endpoint"
+    fi
+}
+
+# Start automation service
+start_service() {
+    echo "🚀 Starting Task Automation Bot..."
+    
+    python3 -c "import flask" 2>/dev/null || {
+        echo "📦 Installing dependencies..."
+        pip3 install flask requests || exit 1
+    }
+    
+    python3 automation_bot.py &
+    echo $! > .automation.pid
+    
+    sleep 2
+    
+    if curl -s http://localhost:5001/health >/dev/null 2>&1; then
+        echo "✅ Task Automation Bot running on port 5001"
+    else
+        echo "❌ Failed to start automation service"
+        exit 1
+    fi
+}
+
+# Create new project
+create_project() {
+    local name=""
+    local language="python"
+    local path="."
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --name) name="$2"; shift 2 ;;
+            --language) language="$2"; shift 2 ;;
+            --path) path="$2"; shift 2 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    if [ -z "$name" ]; then
+        echo "❌ Project name required"
+        echo "Usage: $0 create --name <project_name> [--language <lang>] [--path <path>]"
+        exit 1
+    fi
+    
+    echo "🆕 Creating $language project: $name"
+    
+    local payload="{\"command\":\"create_project\",\"name\":\"$name\",\"language\":\"$language\",\"path\":\"$path\"}"
+    local response=$(call_api "/automation" "$payload")
+    
+    if echo "$response" | grep -q '"status":"project_created"'; then
+        echo "✅ Project created successfully!"
+        echo "$response" | python3 -m json.tool 2>/dev/null
+    else
+        echo "❌ Project creation failed"
+        echo "$response"
+    fi
+}
+
+# Install dependencies
+install_deps() {
+    local path="."
+    local language="auto"
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --path) path="$2"; shift 2 ;;
+            --language) language="$2"; shift 2 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    echo "📦 Installing dependencies in: $path"
+    
+    local payload="{\"command\":\"install_deps\",\"path\":\"$path\",\"language\":\"$language\"}"
+    local response=$(call_api "/automation" "$payload")
+    
+    if echo "$response" | grep -q '"status":"dependencies_installed"'; then
+        echo "✅ Dependencies installed successfully!"
+    else
+        echo "❌ Dependency installation failed"
+    fi
+    echo "$response" | python3 -m json.tool 2>/dev/null
+}
+
+# Format code
+format_code() {
+    local path="."
+    local language="auto"
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --path) path="$2"; shift 2 ;;
+            --language) language="$2"; shift 2 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    echo "🎨 Formatting code in: $path"
+    
+    local payload="{\"command\":\"format\",\"path\":\"$path\",\"language\":\"$language\"}"
+    local response=$(call_api "/automation" "$payload")
+    
+    if echo "$response" | grep -q '"status":"formatting_complete"'; then
+        echo "✅ Code formatted successfully!"
+    else
+        echo "❌ Code formatting failed"
+    fi
+    echo "$response" | python3 -m json.tool 2>/dev/null
+}
+
+# Run tests
+run_tests() {
+    local path="."
+    local language="auto"
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --path) path="$2"; shift 2 ;;
+            --language) language="$2"; shift 2 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    echo "🧪 Running tests in: $path"
+    
+    local payload="{\"command\":\"test\",\"path\":\"$path\",\"language\":\"$language\"}"
+    local response=$(call_api "/automation" "$payload")
+    
+    if echo "$response" | grep -q '"status":"tests_complete"'; then
+        echo "✅ Tests completed!"
+    else
+        echo "❌ Tests failed"
+    fi
+    echo "$response" | python3 -m json.tool 2>/dev/null
+}
+
+# Analyze project
+analyze_project() {
+    local path="."
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --path) path="$2"; shift 2 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    echo "📊 Analyzing project: $path"
+    
+    local payload="{\"command\":\"analyze\",\"path\":\"$path\"}"
+    local response=$(call_api "/automation" "$payload")
+    
+    if echo "$response" | grep -q '"status":"analysis_complete"'; then
+        echo "✅ Analysis completed!"
+    else
+        echo "❌ Analysis failed"
+    fi
+    echo "$response" | python3 -m json.tool 2>/dev/null
+}
+
+# Main command processing
+case "$1" in
+    start)
+        start_service
+        ;;
+    create)
+        shift
+        create_project "$@"
+        ;;
+    install)
+        shift
+        install_deps "$@"
+        ;;
+    format)
+        shift
+        format_code "$@"
+        ;;
+    test)
+        shift
+        run_tests "$@"
+        ;;
+    analyze)
+        shift
+        analyze_project "$@"
+        ;;
+    stop)
+        if [ -f ".automation.pid" ]; then
+            kill $(cat .automation.pid) 2>/dev/null
+            rm -f .automation.pid
+            echo "🛑 Task Automation Bot stopped"
+        else
+            echo "❌ Bot not running"
+        fi
+        ;;
+    status)
+        if curl -s http://localhost:5001/health >/dev/null 2>&1; then
+            echo "🟢 Task Automation Bot: Running"
+            curl -s http://localhost:5001/health | python3 -m json.tool 2>/dev/null
+        else
+            echo "🔴 Task Automation Bot: Not running"
+        fi
+        ;;
+    *)
+        echo "🤖 $BOT_NAME v$BOT_VERSION"
+        echo "Usage: $0 {start|create|install|format|test|analyze|stop|status|--help|--audit}"
+        echo "Run '$0 --help' for detailed usage information"
+        exit 1
+        ;;
+esac

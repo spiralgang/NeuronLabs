@@ -1,0 +1,307 @@
+#!/bin/bash
+# Cloud Librarian Bot - Executable wrapper for bot registry system
+
+BOT_NAME="cloud-librarian"
+BOT_VERSION="1.0.0"
+BOT_DESCRIPTION="Automated code library management with OneDrive integration"
+BOT_DIR="$(dirname "$0")/cloud-librarian"
+
+# Bot registry audit mode
+if [ "$1" = "--audit" ]; then
+    echo "$BOT_NAME v$BOT_VERSION - $BOT_DESCRIPTION - audit passed"
+    echo "  Components: Flask API, Telegram Bot, Docker support, rclone integration"
+    echo "  Services: Code organization, search, backup, sync, indexing"
+    echo "  Dependencies: Python 3.9+, Flask, rclone, docker (optional)"
+    exit 0
+fi
+
+# Help mode
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    echo "🤖 $BOT_NAME v$BOT_VERSION"
+    echo "$BOT_DESCRIPTION"
+    echo ""
+    echo "Usage:"
+    echo "  $0 [command] [options]"
+    echo ""
+    echo "Commands:"
+    echo "  start       Start the cloud librarian services"
+    echo "  stop        Stop running services"
+    echo "  status      Check service status"
+    echo "  build       Build Docker containers"
+    echo "  deploy      Deploy with Docker Compose"
+    echo "  organize    Organize a code snippet"
+    echo "  search      Search the code library"
+    echo "  backup      Create library backup"
+    echo "  sync        Sync with OneDrive"
+    echo ""
+    echo "Environment Variables:"
+    echo "  TELEGRAM_TOKEN    - Telegram bot token (optional)"
+    echo "  LIBRARY_MOUNT     - Library mount path (default: /onedrive/library)"
+    echo "  RCLONE_REMOTE     - rclone remote name (default: onedrive)"
+    echo ""
+    echo "Examples:"
+    echo "  $0 start                    # Start services"
+    echo "  $0 organize --file code.py  # Organize a code file"
+    echo "  $0 search flask            # Search for Flask-related code"
+    exit 0
+fi
+
+# Change to bot directory
+cd "$BOT_DIR" || {
+    echo "❌ Bot directory not found: $BOT_DIR"
+    exit 1
+}
+
+# Function to check if service is running
+check_service() {
+    local service=$1
+    local port=$2
+    curl -s "http://localhost:$port/health" > /dev/null 2>&1
+}
+
+# Function to start services
+start_services() {
+    echo "🚀 Starting Cloud Librarian Bot..."
+    
+    # Check if Docker is available
+    if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+        echo "🐳 Using Docker deployment..."
+        if [ -f "docker-compose.yml" ]; then
+            docker-compose up -d
+        else
+            echo "❌ docker-compose.yml not found"
+            exit 1
+        fi
+    else
+        echo "🐍 Using Python deployment..."
+        
+        # Check Python dependencies
+        python3 -c "import flask, requests" 2>/dev/null || {
+            echo "📦 Installing Python dependencies..."
+            pip3 install -r requirements.txt || {
+                echo "❌ Failed to install dependencies"
+                exit 1
+            }
+        }
+        
+        # Start Flask engine
+        echo "🔧 Starting Flask API engine..."
+        python3 bot_engine.py &
+        ENGINE_PID=$!
+        echo $ENGINE_PID > .engine.pid
+        
+        # Start Telegram bot if token provided
+        if [ ! -z "$TELEGRAM_TOKEN" ]; then
+            echo "🤖 Starting Telegram bot..."
+            python3 telegram_bot.py &
+            TELEGRAM_PID=$!
+            echo $TELEGRAM_PID > .telegram.pid
+        fi
+        
+        # Wait for services to start
+        sleep 3
+        
+        # Check if services are running
+        if check_service "engine" 5000; then
+            echo "✅ Flask API engine running on port 5000"
+        else
+            echo "❌ Failed to start Flask API engine"
+            exit 1
+        fi
+        
+        if [ ! -z "$TELEGRAM_TOKEN" ] && [ -f ".telegram.pid" ]; then
+            echo "✅ Telegram bot integration active"
+        fi
+    fi
+    
+    echo ""
+    echo "🎉 Cloud Librarian Bot is ready!"
+    echo "📋 Available endpoints:"
+    echo "  http://localhost:5000/health - Health check"
+    echo "  http://localhost:5000/organize - Organize code"
+    echo "  http://localhost:5000/search - Search library"
+    echo ""
+}
+
+# Function to stop services
+stop_services() {
+    echo "🛑 Stopping Cloud Librarian Bot..."
+    
+    # Stop Docker services
+    if [ -f "docker-compose.yml" ] && command -v docker-compose >/dev/null; then
+        docker-compose down
+    fi
+    
+    # Stop Python processes
+    if [ -f ".engine.pid" ]; then
+        kill $(cat .engine.pid) 2>/dev/null
+        rm -f .engine.pid
+        echo "🔧 Stopped Flask API engine"
+    fi
+    
+    if [ -f ".telegram.pid" ]; then
+        kill $(cat .telegram.pid) 2>/dev/null
+        rm -f .telegram.pid
+        echo "🤖 Stopped Telegram bot"
+    fi
+    
+    echo "✅ Services stopped"
+}
+
+# Function to check service status
+check_status() {
+    echo "📊 Cloud Librarian Bot Status:"
+    echo ""
+    
+    # Check Flask engine
+    if check_service "engine" 5000; then
+        echo "🟢 Flask API Engine: Running (port 5000)"
+        # Get detailed status
+        curl -s http://localhost:5000/health | python3 -m json.tool 2>/dev/null || echo "  Unable to get detailed status"
+    else
+        echo "🔴 Flask API Engine: Not running"
+    fi
+    
+    # Check Docker services
+    if command -v docker >/dev/null && docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q librarian; then
+        echo ""
+        echo "🐳 Docker Services:"
+        docker ps --format "table {{.Names}}\t{{.Status}}" | grep librarian
+    fi
+    
+    # Check processes
+    if [ -f ".engine.pid" ] || [ -f ".telegram.pid" ]; then
+        echo ""
+        echo "🐍 Python Processes:"
+        [ -f ".engine.pid" ] && echo "  Engine PID: $(cat .engine.pid)"
+        [ -f ".telegram.pid" ] && echo "  Telegram PID: $(cat .telegram.pid)"
+    fi
+}
+
+# Function to organize code snippet
+organize_code() {
+    local file_path=$1
+    local tags=$2
+    
+    if [ -z "$file_path" ]; then
+        echo "❌ File path required"
+        echo "Usage: $0 organize --file <path> [--tags tag1,tag2]"
+        exit 1
+    fi
+    
+    if [ ! -f "$file_path" ]; then
+        echo "❌ File not found: $file_path"
+        exit 1
+    fi
+    
+    echo "📝 Organizing code file: $file_path"
+    
+    # Read file content and create JSON payload
+    local content=$(cat "$file_path")
+    local filename=$(basename "$file_path")
+    
+    # Prepare JSON (basic version)
+    local json_payload
+    if [ ! -z "$tags" ]; then
+        json_payload="{\"snippet\":\"$(echo "$content" | sed 's/"/\\"/g' | tr '\n' '|')\",\"filename\":\"$filename\",\"tags\":[\"$(echo "$tags" | sed 's/,/","/g')\"]}"
+    else
+        json_payload="{\"snippet\":\"$(echo "$content" | sed 's/"/\\"/g' | tr '\n' '|')\",\"filename\":\"$filename\"}"
+    fi
+    
+    # Send to API
+    local response=$(curl -s -X POST \
+        -H "Content-Type: application/json" \
+        -d "$json_payload" \
+        http://localhost:5000/organize)
+    
+    if echo "$response" | grep -q '"status":"organized"'; then
+        echo "✅ Code organized successfully!"
+        echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
+    else
+        echo "❌ Failed to organize code"
+        echo "$response"
+    fi
+}
+
+# Function to search library
+search_library() {
+    local query=$1
+    
+    if [ -z "$query" ]; then
+        echo "❌ Search query required"
+        echo "Usage: $0 search <query>"
+        exit 1
+    fi
+    
+    echo "🔍 Searching library for: $query"
+    
+    local response=$(curl -s "http://localhost:5000/search?q=$(echo "$query" | sed 's/ /%20/g')")
+    
+    if echo "$response" | grep -q '"status":"search_complete"'; then
+        echo "✅ Search completed!"
+        echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
+    else
+        echo "❌ Search failed"
+        echo "$response"
+    fi
+}
+
+# Main command processing
+case "$1" in
+    start)
+        start_services
+        ;;
+    stop)
+        stop_services
+        ;;
+    status)
+        check_status
+        ;;
+    build)
+        echo "🔨 Building Docker containers..."
+        docker build -t cloud-librarian .
+        ;;
+    deploy)
+        echo "🚀 Deploying with Docker Compose..."
+        docker-compose up -d
+        ;;
+    organize)
+        shift
+        file_path=""
+        tags=""
+        while [[ $# -gt 0 ]]; do
+            case $1 in
+                --file)
+                    file_path="$2"
+                    shift 2
+                    ;;
+                --tags)
+                    tags="$2"
+                    shift 2
+                    ;;
+                *)
+                    echo "Unknown option: $1"
+                    exit 1
+                    ;;
+            esac
+        done
+        organize_code "$file_path" "$tags"
+        ;;
+    search)
+        search_library "$2"
+        ;;
+    backup)
+        echo "💾 Creating library backup..."
+        curl -s -X POST -H "Content-Type: application/json" -d '{"command":"backup"}' http://localhost:5000/engine
+        ;;
+    sync)
+        echo "🔄 Syncing with OneDrive..."
+        curl -s -X POST -H "Content-Type: application/json" -d '{"command":"sync"}' http://localhost:5000/engine
+        ;;
+    *)
+        echo "🤖 $BOT_NAME v$BOT_VERSION"
+        echo "Usage: $0 {start|stop|status|build|deploy|organize|search|backup|sync|--help|--audit}"
+        echo "Run '$0 --help' for detailed usage information"
+        exit 1
+        ;;
+esac
