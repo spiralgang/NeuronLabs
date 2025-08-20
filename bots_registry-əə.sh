@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+shopt -s nullglob
 # Bots Registry (əə) — NeuronLabs
 # Discovers, registers, audits, and executes bots
 
