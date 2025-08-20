@@ -4,29 +4,22 @@ This directory contains build artifacts and compiled applications.
 
 ## Directory Structure
 
-- `apk/` - Android APK files and packages
+- `apk/` - Android APK files and packages (currently empty - non-functional APKs removed)
 - `releases/` - Release builds organized by version
 
-## APK Files
+## APK Status
 
-The following APK files are available in the `apk/` directory:
+The APK files have been removed as they were non-functional. New functional builds will be added when available.
 
-- `NeuronLabs_Working.apk` - Main working version of the NeuronLabs application
-- `NeuronLabsEnhanced.apk` - Enhanced version with additional features  
-- `NeuronLabsComplete.apk` - Complete feature set version
-- `GhostEdgeReal.apk` - GhostEdge real implementation
-- `GhostEdgeModern.apk` - Modern GhostEdge variant
+## Future Builds
 
-## Installation
-
-To install any of these APK files on Android:
-
-1. Enable "Install from Unknown Sources" in your device settings
-2. Download the desired APK file
-3. Tap the file to install
-4. Follow the on-screen installation prompts
+When functional builds are available, they will be placed in the `apk/` subdirectory with proper:
+- Installation instructions
+- Version documentation
+- Feature descriptions
+- Testing validation
 
 ## Build Information
 
-These builds are development versions and may contain experimental features.
-For stable releases, check the `releases/` directory.
+Future builds will be properly tested and validated before inclusion.
+For development setup and build instructions, see the main [README](../README.md) and [documentation](../docs/).
