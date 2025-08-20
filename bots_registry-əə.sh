@@ -4,8 +4,9 @@ shopt -s nullglob
 # Bots Registry (əə) — NeuronLabs
 # Discovers, registers, audits, and executes bots
 
-BOT_DIR="./bots"
-REGISTRY_LOG="bots_registry-əə.log"
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+BOT_DIR="$SCRIPT_DIR/bots"
+REGISTRY_LOG="$SCRIPT_DIR/bots_registry-əə.log"
 mkdir -p "$BOT_DIR"
 
 echo "[`date +%FT%T`] Scanning for bots in $BOT_DIR" | tee -a "$REGISTRY_LOG"
