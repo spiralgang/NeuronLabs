@@ -37,8 +37,9 @@ hs_err_pid*
 .externalNativeBuild
 .cxx
 
-# Built application files
+# Built application files (allow builds/apk/ directory)
 *.apk
+!builds/apk/*.apk
 *.ap_
 *.aab
 
