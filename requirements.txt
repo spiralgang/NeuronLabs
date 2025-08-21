@@ -1,0 +1,3 @@
+# NeuronLabs Test Requirements
+flask
+requests

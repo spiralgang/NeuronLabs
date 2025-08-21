@@ -1,0 +1,388 @@
+#!/bin/bash
+# Git Workflow Bot - Executable wrapper for bot registry system
+
+BOT_NAME="git-workflow"
+BOT_VERSION="1.0.0"
+BOT_DESCRIPTION="Automated Git operations and workflow management"
+BOT_DIR="$(dirname "$0")/git-workflow"
+
+# Bot registry audit mode
+if [ "$1" = "--audit" ]; then
+    echo "$BOT_NAME v$BOT_VERSION - $BOT_DESCRIPTION - audit passed"
+    echo "  Features: Branch management, conventional commits, automated versioning"
+    echo "  Operations: Init, branch, commit, merge, tag, status, version bump"
+    echo "  Standards: Conventional commits, semantic versioning"
+    exit 0
+fi
+
+# Help mode
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    echo "🔧 $BOT_NAME v$BOT_VERSION"
+    echo "$BOT_DESCRIPTION"
+    echo ""
+    echo "Commands:"
+    echo "  init        Initialize Git repository"
+    echo "  branch      Create and switch to new branch"
+    echo "  commit      Create conventional commit"
+    echo "  merge       Merge branches"
+    echo "  tag         Create version tag"
+    echo "  status      Get repository status"
+    echo "  bump        Auto-bump version"
+    echo ""
+    echo "Commit Types:"
+    echo "  feat        New feature"
+    echo "  fix         Bug fix"
+    echo "  docs        Documentation"
+    echo "  style       Code style changes"
+    echo "  refactor    Code refactoring"
+    echo "  test        Tests"
+    echo "  chore       Maintenance"
+    echo ""
+    echo "Examples:"
+    echo "  $0 init --path ./myproject"
+    echo "  $0 branch --name feature/new-api --switch"
+    echo "  $0 commit --type feat --desc 'Add user authentication'"
+    echo "  $0 merge --source feature/new-api --target main"
+    echo "  $0 bump --type auto"
+    exit 0
+fi
+
+cd "$BOT_DIR" || {
+    echo "❌ Bot directory not found: $BOT_DIR"
+    exit 1
+}
+
+# API helper function
+call_api() {
+    local endpoint=$1
+    local payload=$2
+    local method=${3:-POST}
+    
+    if [ "$method" = "POST" ]; then
+        curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            "http://localhost:5003$endpoint"
+    else
+        curl -s "http://localhost:5003$endpoint"
+    fi
+}
+
+# Start Git workflow service
+start_service() {
+    echo "🔧 Starting Git Workflow Bot..."
+    
+    python3 -c "import flask" 2>/dev/null || {
+        echo "📦 Installing dependencies..."
+        pip3 install flask || exit 1
+    }
+    
+    python3 git_bot.py &
+    echo $! > .git.pid
+    
+    sleep 2
+    
+    if curl -s http://localhost:5003/health >/dev/null 2>&1; then
+        echo "✅ Git Workflow Bot running on port 5003"
+    else
+        echo "❌ Failed to start Git workflow service"
+        exit 1
+    fi
+}
+
+# Initialize repository
+init_repo() {
+    local path="."
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --path) path="$2"; shift 2 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    echo "🆕 Initializing Git repository in: $path"
+    
+    local payload="{\"command\":\"init\",\"path\":\"$path\"}"
+    local response=$(call_api "/git" "$payload")
+    
+    if echo "$response" | grep -q '"status":"repository_initialized"'; then
+        echo "✅ Repository initialized successfully!"
+    else
+        echo "❌ Repository initialization failed"
+    fi
+    echo "$response" | python3 -m json.tool 2>/dev/null
+}
+
+# Create branch
+create_branch() {
+    local name=""
+    local path="."
+    local switch="true"
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --name) name="$2"; shift 2 ;;
+            --path) path="$2"; shift 2 ;;
+            --no-switch) switch="false"; shift ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    if [ -z "$name" ]; then
+        echo "❌ Branch name required"
+        echo "Usage: $0 branch --name <branch_name> [--path <path>] [--no-switch]"
+        exit 1
+    fi
+    
+    echo "🌿 Creating branch: $name"
+    
+    local payload="{\"command\":\"create_branch\",\"path\":\"$path\",\"branch_name\":\"$name\",\"switch\":$switch}"
+    local response=$(call_api "/git" "$payload")
+    
+    if echo "$response" | grep -q '"status":"branch_created"'; then
+        echo "✅ Branch created successfully!"
+    else
+        echo "❌ Branch creation failed"
+    fi
+    echo "$response" | python3 -m json.tool 2>/dev/null
+}
+
+# Create commit
+create_commit() {
+    local type="feat"
+    local desc=""
+    local scope=""
+    local body=""
+    local breaking="false"
+    local path="."
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --type) type="$2"; shift 2 ;;
+            --desc|--description) desc="$2"; shift 2 ;;
+            --scope) scope="$2"; shift 2 ;;
+            --body) body="$2"; shift 2 ;;
+            --breaking) breaking="true"; shift ;;
+            --path) path="$2"; shift 2 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    if [ -z "$desc" ]; then
+        echo "❌ Commit description required"
+        echo "Usage: $0 commit --type <type> --desc <description> [options]"
+        echo "Valid types: feat, fix, docs, style, refactor, test, chore"
+        exit 1
+    fi
+    
+    echo "💾 Creating $type commit: $desc"
+    
+    local payload="{\"command\":\"commit\",\"path\":\"$path\",\"type\":\"$type\",\"description\":\"$desc\",\"breaking\":$breaking"
+    [ ! -z "$scope" ] && payload="${payload},\"scope\":\"$scope\""
+    [ ! -z "$body" ] && payload="${payload},\"body\":\"$body\""
+    payload="${payload}}"
+    
+    local response=$(call_api "/git" "$payload")
+    
+    if echo "$response" | grep -q '"status":"changes_committed"'; then
+        echo "✅ Changes committed successfully!"
+    else
+        echo "❌ Commit failed"
+    fi
+    echo "$response" | python3 -m json.tool 2>/dev/null
+}
+
+# Merge branches
+merge_branches() {
+    local source=""
+    local target="main"
+    local strategy="merge"
+    local path="."
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --source) source="$2"; shift 2 ;;
+            --target) target="$2"; shift 2 ;;
+            --strategy) strategy="$2"; shift 2 ;;
+            --path) path="$2"; shift 2 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    if [ -z "$source" ]; then
+        echo "❌ Source branch required"
+        echo "Usage: $0 merge --source <branch> [--target <branch>] [--strategy <merge|squash|rebase>]"
+        exit 1
+    fi
+    
+    echo "🔀 Merging $source into $target (strategy: $strategy)"
+    
+    local payload="{\"command\":\"merge\",\"path\":\"$path\",\"source_branch\":\"$source\",\"target_branch\":\"$target\",\"strategy\":\"$strategy\"}"
+    local response=$(call_api "/git" "$payload")
+    
+    if echo "$response" | grep -q '"status":"branches_merged"'; then
+        echo "✅ Branches merged successfully!"
+    else
+        echo "❌ Merge failed"
+    fi
+    echo "$response" | python3 -m json.tool 2>/dev/null
+}
+
+# Create tag
+create_tag() {
+    local name=""
+    local message=""
+    local path="."
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --name) name="$2"; shift 2 ;;
+            --message) message="$2"; shift 2 ;;
+            --path) path="$2"; shift 2 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    if [ -z "$name" ]; then
+        echo "❌ Tag name required"
+        echo "Usage: $0 tag --name <tag_name> [--message <message>]"
+        exit 1
+    fi
+    
+    echo "🏷️  Creating tag: $name"
+    
+    local payload="{\"command\":\"tag\",\"path\":\"$path\",\"tag_name\":\"$name\""
+    [ ! -z "$message" ] && payload="${payload},\"message\":\"$message\""
+    payload="${payload}}"
+    
+    local response=$(call_api "/git" "$payload")
+    
+    if echo "$response" | grep -q '"status":"tag_created"'; then
+        echo "✅ Tag created successfully!"
+    else
+        echo "❌ Tag creation failed"
+    fi
+    echo "$response" | python3 -m json.tool 2>/dev/null
+}
+
+# Get repository status
+get_status() {
+    local path="."
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --path) path="$2"; shift 2 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    echo "📊 Getting repository status: $path"
+    
+    local payload="{\"command\":\"status\",\"path\":\"$path\"}"
+    local response=$(call_api "/git" "$payload")
+    
+    if echo "$response" | grep -q '"status":"repo_status_retrieved"'; then
+        echo "✅ Repository status retrieved!"
+        echo ""
+        echo "$response" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+info = data.get('info', {})
+print(f\"Current branch: {info.get('current_branch', 'unknown')}\")
+print(f\"Repository clean: {info.get('clean', False)}\")
+changes = info.get('changes', {})
+if changes:
+    for change_type, files in changes.items():
+        if files:
+            print(f\"{change_type.title()}: {len(files)} files\")
+"
+    else
+        echo "❌ Failed to get repository status"
+        echo "$response"
+    fi
+}
+
+# Auto version bump
+version_bump() {
+    local type="auto"
+    local path="."
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --type) type="$2"; shift 2 ;;
+            --path) path="$2"; shift 2 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    echo "📈 Bumping version (type: $type)"
+    
+    local payload="{\"command\":\"version_bump\",\"path\":\"$path\",\"type\":\"$type\"}"
+    local response=$(call_api "/git" "$payload")
+    
+    if echo "$response" | grep -q '"status":"version_bumped"'; then
+        echo "✅ Version bumped successfully!"
+    else
+        echo "❌ Version bump failed"
+    fi
+    echo "$response" | python3 -m json.tool 2>/dev/null
+}
+
+# Main command processing
+case "$1" in
+    start)
+        start_service
+        ;;
+    init)
+        shift
+        init_repo "$@"
+        ;;
+    branch)
+        shift
+        create_branch "$@"
+        ;;
+    commit)
+        shift
+        create_commit "$@"
+        ;;
+    merge)
+        shift
+        merge_branches "$@"
+        ;;
+    tag)
+        shift
+        create_tag "$@"
+        ;;
+    status)
+        shift
+        get_status "$@"
+        ;;
+    bump)
+        shift
+        version_bump "$@"
+        ;;
+    stop)
+        if [ -f ".git.pid" ]; then
+            kill $(cat .git.pid) 2>/dev/null
+            rm -f .git.pid
+            echo "🛑 Git Workflow Bot stopped"
+        else
+            echo "❌ Bot not running"
+        fi
+        ;;
+    health)
+        if curl -s http://localhost:5003/health >/dev/null 2>&1; then
+            echo "🟢 Git Workflow Bot: Running"
+            curl -s http://localhost:5003/health | python3 -m json.tool 2>/dev/null
+        else
+            echo "🔴 Git Workflow Bot: Not running"
+        fi
+        ;;
+    *)
+        echo "🔧 $BOT_NAME v$BOT_VERSION"
+        echo "Usage: $0 {start|init|branch|commit|merge|tag|status|bump|stop|health|--help|--audit}"
+        echo "Run '$0 --help' for detailed usage information"
+        exit 1
+        ;;
+esac

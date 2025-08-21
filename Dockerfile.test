@@ -1,0 +1,17 @@
+# Test Dockerfile for NeuronLabs validation
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy requirements and install dependencies
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# Copy application files
+COPY test_app.py .
+
+# Expose port
+EXPOSE 5000
+
+# Run application
+CMD ["python", "test_app.py"]

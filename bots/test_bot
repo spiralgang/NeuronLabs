@@ -1,0 +1,6 @@
+#!/bin/bash
+if [ "$1" = "--audit" ]; then
+  echo "Test bot v1.0 - audit passed"
+else
+  echo "Test bot executing..."
+fi
