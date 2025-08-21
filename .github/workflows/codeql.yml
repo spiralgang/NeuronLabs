@@ -15,7 +15,9 @@ on:
   push:
     branches: [ "main", "protec" ]
   pull_request:
-    branches: [ "main", "protec" ]
+    branches: [ "main", "protect" ]
+  pull_request:
+    branches: [ "main", "protect" ]
   schedule:
     - cron: '37 15 * * 6'
 
