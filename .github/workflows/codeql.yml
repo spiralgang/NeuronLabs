@@ -13,8 +13,6 @@ name: "CodeQL Advanced"
 
 on:
   push:
-    branches: [ "main", "protec" ]
-  pull_request:
     branches: [ "main", "protect" ]
   pull_request:
     branches: [ "main", "protect" ]
