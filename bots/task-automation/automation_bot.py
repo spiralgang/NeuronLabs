@@ -184,7 +184,7 @@ class TaskAutomationBot:
             results = []
             for formatter in formatters:
                 try:
-                    result = subprocess.run(formatter, cwd=project_path, 
+                    result = subprocess.run(formatter, cwd=project_path, capture_output=True, text=True, timeout=60, check=True)
                                           capture_output=True, text=True, timeout=60)
                     results.append({
                         "tool": formatter[0],
