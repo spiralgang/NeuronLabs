@@ -9,7 +9,7 @@ indexes them in the Cloud Librarian system.
 import os
 import sys
 import json
-import hashlib
+import hashlib  # Remove this line
 import requests
 from pathlib import Path
 import argparse
