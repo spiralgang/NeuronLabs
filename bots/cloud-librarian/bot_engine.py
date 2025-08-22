@@ -77,7 +77,7 @@ class CloudLibrarian:
         
         # Generate filename if not provided
         if not filename:
-            snippet_hash = hashlib.md5(snippet.encode()).hexdigest()[:8]
+            snippet_hash = hashlib.sha256(snippet.encode()).hexdigest()[:8]
             filename = f"snippet_{snippet_hash}.{self.get_extension(language)}"
         
         file_path = os.path.join(target_dir, filename)
