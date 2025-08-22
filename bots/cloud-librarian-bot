@@ -196,17 +196,36 @@ organize_code() {
     
     echo "📝 Organizing code file: $file_path"
     
-    # Read file content and create JSON payload
-    local content=$(cat "$file_path")
-    local filename=$(basename "$file_path")
-    
-    # Prepare JSON (basic version)
+    # Use Python to safely create JSON payload
     local json_payload
-    if [ ! -z "$tags" ]; then
-        json_payload="{\"snippet\":\"$(echo "$content" | sed 's/"/\\"/g' | tr '\n' '|')\",\"filename\":\"$filename\",\"tags\":[\"$(echo "$tags" | sed 's/,/","/g')\"]}"
-    else
-        json_payload="{\"snippet\":\"$(echo "$content" | sed 's/"/\\"/g' | tr '\n' '|')\",\"filename\":\"$filename\"}"
-    fi
+    json_payload=$(python3 -c "
+import json
+import sys
+
+file_path = sys.argv[1]
+tags_str = sys.argv[2] if len(sys.argv) > 2 else ''
+
+try:
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+except:
+    print('{\"error\":\"Unable to read file\"}')
+    exit(1)
+
+import os
+filename = os.path.basename(file_path)
+
+payload = {
+    'snippet': content,
+    'filename': filename
+}
+
+if tags_str:
+    tags = [tag.strip() for tag in tags_str.split(',')]
+    payload['tags'] = tags
+
+print(json.dumps(payload))
+" "$file_path" "$tags")
     
     # Send to API
     local response=$(curl -s -X POST \

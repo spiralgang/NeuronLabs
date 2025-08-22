@@ -154,7 +154,7 @@ run_container() {
     local payload="{\"command\":\"run\",\"image\":\"$image\""
     [ ! -z "$name" ] && payload="${payload},\"name\":\"$name\""
     if [ ! -z "$ports" ]; then
-        # Convert "8080:80" to {"8080/tcp": 80}
+        # Convert "8080:80" to {"80/tcp": 8080} - correct format for docker-py
         local host_port=$(echo "$ports" | cut -d: -f1)
         local container_port=$(echo "$ports" | cut -d: -f2)
         payload="${payload},\"ports\":{\"$container_port/tcp\":$host_port}"

@@ -39,11 +39,9 @@ class GitWorkflowBot:
         return git_dir.exists()
     
     def run_git_command(self, cmd, path='.'):
-        """Run git command and return result"""
-        try:
         """Run git command and return result. Expects cmd as a list of arguments."""
         try:
-            result = subprocess.run(cmd, cwd=path, capture_output=True, text=True)
+            result = subprocess.run(cmd, cwd=path, capture_output=True, text=True, shell=False)
             return {
                 "success": result.returncode == 0,
                 "output": result.stdout.strip(),
@@ -64,17 +62,17 @@ class GitWorkflowBot:
             return {"error": "Git repository already exists"}
         
         commands = [
-            "git init",
-            "git config user.name 'Automation Bot'",
-            "git config user.email 'bot@neuronlabs.dev'"
+            ["git", "init"],
+            ["git", "config", "user.name", "Automation Bot"],
+            ["git", "config", "user.email", "bot@neuronlabs.dev"]
         ]
         
         results = []
         for cmd in commands:
             result = self.run_git_command(cmd, path)
-            results.append({"command": cmd, "result": result})
+            results.append({"command": " ".join(cmd), "result": result})
             if not result["success"]:
-                return {"error": f"Failed to execute: {cmd}", "details": result["error"]}
+                return {"error": f"Failed to execute: {' '.join(cmd)}", "details": result["error"]}
         
         return {
             "status": "repository_initialized",
@@ -94,11 +92,14 @@ class GitWorkflowBot:
         if not self.check_git_repo(path):
             return {"error": "Not a git repository"}
         
-        # Validate branch name
+        # Validate branch name - ensure it contains only safe characters
         if not re.match(r'^[a-zA-Z0-9/_-]+$', branch_name):
             return {"error": "Invalid branch name"}
         
-        cmd = f"git checkout -b {branch_name}" if switch else f"git branch {branch_name}"
+        if switch:
+            cmd = ["git", "checkout", "-b", branch_name]
+        else:
+            cmd = ["git", "branch", branch_name]
         result = self.run_git_command(cmd, path)
         
         if not result["success"]:
@@ -142,17 +143,17 @@ class GitWorkflowBot:
         
         # Stage all changes and commit
         commands = [
-            "git add .",
-            f"git commit -m '{commit_msg}'"
+            ["git", "add", "."],
+            ["git", "commit", "-m", commit_msg]
         ]
         
         for cmd in commands:
             result = self.run_git_command(cmd, path)
             if not result["success"]:
-                return {"error": f"Failed to execute: {cmd}", "details": result["error"]}
+                return {"error": f"Failed to execute: {' '.join(cmd)}", "details": result["error"]}
         
         # Get commit hash
-        hash_result = self.run_git_command("git rev-parse --short HEAD", path)
+        hash_result = self.run_git_command(["git", "rev-parse", "--short", "HEAD"], path)
         commit_hash = hash_result["output"] if hash_result["success"] else "unknown"
         
         return {
@@ -163,7 +164,7 @@ class GitWorkflowBot:
             "message": commit_msg
         }
     
-            if not source_branch or not self.check_git_repo(path):
+    def merge_branch(self, data):
         """Merge one branch into another"""
         path = data.get('path', '.')
         source_branch = data.get('source_branch')
@@ -176,18 +177,22 @@ class GitWorkflowBot:
         if not self.check_git_repo(path):
             return {"error": "Not a git repository"}
         
+        # Validate branch names - ensure they contain only safe characters
+        if not re.match(r'^[a-zA-Z0-9/_-]+$', source_branch) or not re.match(r'^[a-zA-Z0-9/_-]+$', target_branch):
+            return {"error": "Invalid branch name"}
+        
         # Switch to target branch
-        switch_result = self.run_git_command(f"git checkout {target_branch}", path)
+        switch_result = self.run_git_command(["git", "checkout", target_branch], path)
         if not switch_result["success"]:
             return {"error": f"Failed to switch to {target_branch}: {switch_result['error']}"}
         
         # Perform merge
         if strategy == "squash":
-            merge_cmd = f"git merge --squash {source_branch}"
+            merge_cmd = ["git", "merge", "--squash", source_branch]
         elif strategy == "rebase":
-            merge_cmd = f"git rebase {source_branch}"
+            merge_cmd = ["git", "rebase", source_branch]
         else:
-            merge_cmd = f"git merge {source_branch}"
+            merge_cmd = ["git", "merge", source_branch]
         
         merge_result = self.run_git_command(merge_cmd, path)
         
@@ -196,7 +201,7 @@ class GitWorkflowBot:
         
         # If squash merge, need to commit
         if strategy == "squash":
-            commit_result = self.run_git_command(f"git commit -m 'Merge {source_branch} into {target_branch}'", path)
+            commit_result = self.run_git_command(["git", "commit", "-m", f"Merge {source_branch} into {target_branch}"], path)
             if not commit_result["success"]:
                 return {"error": f"Failed to commit squash merge: {commit_result['error']}"}
         
@@ -224,7 +229,7 @@ class GitWorkflowBot:
         if not re.match(r'^v?\d+\.\d+\.\d+', tag_name):
             return {"error": "Tag should follow semantic versioning (e.g., v1.0.0)"}
         
-        cmd = f"git tag -a {tag_name} -m '{message or tag_name}'"
+        cmd = ["git", "tag", "-a", tag_name, "-m", message or tag_name]
         result = self.run_git_command(cmd, path)
         
         if not result["success"]:
@@ -246,11 +251,11 @@ class GitWorkflowBot:
         status_info = {}
         
         # Current branch
-        branch_result = self.run_git_command("git branch --show-current", path)
+        branch_result = self.run_git_command(["git", "branch", "--show-current"], path)
         status_info["current_branch"] = branch_result["output"] if branch_result["success"] else "unknown"
         
         # Git status
-        status_result = self.run_git_command("git status --porcelain", path)
+        status_result = self.run_git_command(["git", "status", "--porcelain"], path)
         if status_result["success"]:
             lines = status_result["output"].split('\n') if status_result["output"] else []
             status_info["changes"] = {
@@ -262,12 +267,12 @@ class GitWorkflowBot:
             status_info["clean"] = len(lines) == 0
         
         # Recent commits
-        log_result = self.run_git_command("git log --oneline -n 5", path)
+        log_result = self.run_git_command(["git", "log", "--oneline", "-n", "5"], path)
         if log_result["success"]:
             status_info["recent_commits"] = log_result["output"].split('\n') if log_result["output"] else []
         
         # All branches
-        branches_result = self.run_git_command("git branch -a", path)
+        branches_result = self.run_git_command(["git", "branch", "-a"], path)
         if branches_result["success"]:
             status_info["branches"] = [
                 branch.strip().replace('* ', '') 
@@ -276,7 +281,7 @@ class GitWorkflowBot:
             ]
         
         # Tags
-        tags_result = self.run_git_command("git tag -l", path)
+        tags_result = self.run_git_command(["git", "tag", "-l"], path)
         if tags_result["success"]:
             status_info["tags"] = tags_result["output"].split('\n') if tags_result["output"] else []
         
@@ -295,7 +300,7 @@ class GitWorkflowBot:
             return {"error": "Not a git repository"}
         
         # Get current version from tags
-        tags_result = self.run_git_command("git tag -l --sort=-version:refname", path)
+        tags_result = self.run_git_command(["git", "tag", "-l", "--sort=-version:refname"], path)
         if not tags_result["success"]:
             current_version = "v0.0.0"
         else:
@@ -311,7 +316,7 @@ class GitWorkflowBot:
         
         # Auto-detect bump type from recent commits
         if bump_type == 'auto':
-            commits_result = self.run_git_command("git log --oneline --since='1 week ago'", path)
+            commits_result = self.run_git_command(["git", "log", "--oneline", "--since=1 week ago"], path)
             if commits_result["success"]:
                 commits = commits_result["output"]
                 if 'BREAKING CHANGE' in commits or re.search(r'\w+!:', commits):
@@ -337,7 +342,7 @@ class GitWorkflowBot:
         new_version = f"v{major}.{minor}.{patch}"
         
         # Create tag
-        tag_result = self.run_git_command(f"git tag -a {new_version} -m 'Release {new_version}'", path)
+        tag_result = self.run_git_command(["git", "tag", "-a", new_version, "-m", f"Release {new_version}"], path)
         if not tag_result["success"]:
             return {"error": f"Failed to create version tag: {tag_result['error']}"}
         

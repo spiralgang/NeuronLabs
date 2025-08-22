@@ -11,6 +11,7 @@ This bot handles:
 """
 
 import os
+import re
 import json
 import docker
 import subprocess
@@ -274,10 +275,14 @@ class DockerManagerBot:
             return {"error": f"Compose file not found: {compose_file}"}
         
         try:
+            # Validate project name to avoid path traversal
+            if not re.match(r'^[a-zA-Z0-9_-]+$', project_name):
+                return {"error": "Invalid project name - only alphanumeric, underscore and dash allowed"}
+                
             # Use docker-compose command
             result = subprocess.run([
                 'docker-compose', '-f', str(compose_path), '-p', project_name, 'up', '-d'
-            base_dir = path
+            ], cwd=path, capture_output=True, text=True)
             
             if result.returncode != 0:
                 return {"error": f"Compose deployment failed: {result.stderr}"}
