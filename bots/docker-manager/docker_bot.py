@@ -277,7 +277,7 @@ class DockerManagerBot:
             # Use docker-compose command
             result = subprocess.run([
                 'docker-compose', '-f', str(compose_path), '-p', project_name, 'up', '-d'
-            ], capture_output=True, text=True, cwd=str(base_dir))
+            base_dir = path
             
             if result.returncode != 0:
                 return {"error": f"Compose deployment failed: {result.stderr}"}
