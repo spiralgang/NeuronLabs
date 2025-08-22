@@ -163,7 +163,7 @@ class GitWorkflowBot:
             "message": commit_msg
         }
     
-    def merge_branch(self, data):
+            if not source_branch or not self.check_git_repo(path):
         """Merge one branch into another"""
         path = data.get('path', '.')
         source_branch = data.get('source_branch')
