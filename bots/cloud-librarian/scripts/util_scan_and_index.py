@@ -8,7 +8,7 @@ indexes them in the Cloud Librarian system.
 
 import os
 import sys
-import json
+import json  # Remove this line if not needed
 import hashlib  # Remove this line
 import requests
 from pathlib import Path
