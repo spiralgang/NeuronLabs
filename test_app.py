@@ -38,7 +38,7 @@ HTML_TEMPLATE = '''
 @app.route('/')
 def index():
     import datetime
-    return render_template_string(HTML_TEMPLATE, timestamp=datetime.datetime.now())
+    return render_template('index.html', timestamp=datetime.datetime.now())
 
 @app.route('/health')
 def health():
