@@ -94,7 +94,7 @@ class CloudLibrarian:
             "tags": tags,
             "size": len(snippet),
             "created": datetime.now().isoformat(),
-            "hash": hashlib.md5(snippet.encode()).hexdigest()
+            "hash": hashlib.sha256(snippet.encode()).hexdigest()
         }
         
         index["files"][filename] = file_info
