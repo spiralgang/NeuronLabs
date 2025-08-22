@@ -41,7 +41,9 @@ class GitWorkflowBot:
     def run_git_command(self, cmd, path='.'):
         """Run git command and return result"""
         try:
-            result = subprocess.run(cmd, cwd=path, capture_output=True, text=True, shell=True)
+        """Run git command and return result. Expects cmd as a list of arguments."""
+        try:
+            result = subprocess.run(cmd, cwd=path, capture_output=True, text=True)
             return {
                 "success": result.returncode == 0,
                 "output": result.stdout.strip(),
