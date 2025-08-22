@@ -113,7 +113,7 @@ class CloudLibrarian:
             "path": file_path
         }
     
-    def search_code(self, data):
+    match_score = self.calculate_match_score(filename, file_info, query, language, tags)
         """Search through the code library"""
         query = data.get("query", "")
         language = data.get("language")
