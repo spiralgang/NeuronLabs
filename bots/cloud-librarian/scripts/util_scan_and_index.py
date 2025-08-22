@@ -71,7 +71,7 @@ class CodeScanner:
             print(f"⚠️  Could not read {file_path}: {e}")
             return None
     
-    def extract_tags(self, content, language):
+    tags.extend(self._extract_python_tags(content))  # New method to handle Python-specific tags
         """Extract tags from code content"""
         tags = [language]
         
