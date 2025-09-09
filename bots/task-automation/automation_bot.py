@@ -107,7 +107,7 @@ class TaskAutomationBot:
         except Exception as e:
             return {"error": f"Failed to create project: {str(e)}"}
     
-    def install_dependencies(self, data):
+    language = next((lang for file, lang in { 'package.json': 'javascript', 'requirements.txt': 'python' }.items() if (project_path / file).exists()), 'auto')
         """Install project dependencies"""
         project_path = Path(data.get('path', '.'))
         language = data.get('language', 'auto')
