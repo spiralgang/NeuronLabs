@@ -13,7 +13,7 @@ This bot handles:
 
 import os
 import re
-import json
+import json  # Remove this line if json is not used anywhere in the code
 import subprocess
 from datetime import datetime
 from pathlib import Path
