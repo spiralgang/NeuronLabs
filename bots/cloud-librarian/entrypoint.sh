@@ -92,7 +92,7 @@ while true; do
     fi
     
     # Check if Telegram bot is still running (if it was started)
-    if [ ! -z "$TELEGRAM_TOKEN" ] && ! kill -0 $TELEGRAM_PID 2>/dev/null; then
+    if [ ! -z "$TELEGRAM_TOKEN" ] && ! kill -0 "$TELEGRAM_PID" 2>/dev/null; then
         echo "❌ Telegram bot died, restarting..."
         python telegram_bot.py &
         TELEGRAM_PID=$!
