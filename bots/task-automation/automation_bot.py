@@ -252,7 +252,7 @@ class TaskAutomationBot:
         except Exception as e:
             return {"error": f"Failed to run tests: {str(e)}"}
     
-    def analyze_project(self, data):
+            if not project_path.exists(): return {"error": "Project path does not exist"}
         """Analyze project structure and health"""
         project_path = Path(data.get('path', '.'))
         
