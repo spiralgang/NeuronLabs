@@ -241,7 +241,7 @@ class GitWorkflowBot:
             "message": message or tag_name
         }
     
-    def get_repo_status(self, data):
+    if not self.check_git_repo(path): return {"error": "Not a git repository"}
         """Get comprehensive repository status"""
         path = data.get('path', '.')
         
