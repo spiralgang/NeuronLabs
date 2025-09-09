@@ -26,7 +26,7 @@ class DockerManagerBot:
         try:
             self.client = docker.from_env()
             self.docker_available = True
-        except:
+        except docker.errors.DockerException:
             self.docker_available = False
     
     def build_image(self, data):
