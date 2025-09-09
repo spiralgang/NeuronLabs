@@ -297,7 +297,7 @@ class DockerManagerBot:
         except Exception as e:
             return {"error": f"Deployment failed: {str(e)}"}
     
-    def generate_dockerfile(self, data):
+    def generate_dockerfile(self, data): return self._detect_language(data)
         """Generate Dockerfile based on project analysis"""
         project_path = Path(data.get('path', '.'))
         language = data.get('language', 'auto')
