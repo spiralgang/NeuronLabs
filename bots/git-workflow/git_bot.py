@@ -112,7 +112,7 @@ class GitWorkflowBot:
             "output": result["output"]
         }
     
-    def commit_changes(self, data):
+    def commit_changes(self, data: dict = None):
         """Create a conventional commit"""
         path = data.get('path', '.')
         commit_type = data.get('type', 'feat')
