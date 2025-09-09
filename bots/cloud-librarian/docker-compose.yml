@@ -17,7 +17,7 @@ services:
       - ~/.config/rclone/rclone.conf:/root/.config/rclone/rclone.conf:ro
       # Optional: Mount a local directory for library storage (if not using cloud)
       - ./library:/onedrive/library
-    privileged: true  # Required for FUSE mounting
+    # privileged: true  # Required for FUSE mounting
     devices:
       - /dev/fuse:/dev/fuse
     cap_add:
