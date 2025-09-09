@@ -56,7 +56,7 @@ FLASK_PID=$!
 
 # Wait for Flask to start
 echo "⏳ Waiting for Flask engine to start..."
-for i in {1..30}; do
+for _ in {1..30}; do
     if health_check; then
         echo "✅ Cloud Librarian Bot Engine is ready!"
         echo ""
