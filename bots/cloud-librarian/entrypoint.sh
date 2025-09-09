@@ -12,7 +12,7 @@ if [ -f "/root/.config/rclone/rclone.conf" ]; then
     
     # Mount OneDrive remote in background
     # Note: In production, ensure your rclone.conf has proper OneDrive credentials
-    rclone mount ${RCLONE_REMOTE:-onedrive}: /onedrive --daemon --allow-other || {
+    rclone mount "${RCLONE_REMOTE:-onedrive}:" /onedrive --daemon --allow-other || {
         echo "⚠️  OneDrive mount failed, continuing with local storage only"
     }
     
