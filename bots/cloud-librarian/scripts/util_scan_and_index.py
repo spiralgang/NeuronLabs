@@ -138,7 +138,7 @@ class CodeScanner:
             print(f"❌ Failed to organize {file_path.name}: {e}")
             return None
     
-    def scan_and_index(self, directories, dry_run=False):
+    def scan_and_index(self, directories: list[str], dry_run: bool = False) -> list[str]:
         """Scan directories and index all code files"""
         all_files = []
         
