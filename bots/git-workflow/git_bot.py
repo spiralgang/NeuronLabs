@@ -164,7 +164,7 @@ class GitWorkflowBot:
             "message": commit_msg
         }
     
-    def merge_branch(self, data):
+    def merge_branch(self, data): self.validate_merge_data(data)  # Add this line to call a new helper method
         """Merge one branch into another"""
         path = data.get('path', '.')
         source_branch = data.get('source_branch')
