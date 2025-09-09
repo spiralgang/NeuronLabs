@@ -291,7 +291,7 @@ class GitWorkflowBot:
             "info": status_info
         }
     
-    def auto_version_bump(self, data):
+    if bump_type not in ['major', 'minor', 'patch', 'auto']: return {"error": "Invalid bump type"}
         """Automatically bump version based on commit history"""
         path = data.get('path', '.')
         bump_type = data.get('type', 'auto')  # major, minor, patch, auto
