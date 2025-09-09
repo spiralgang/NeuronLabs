@@ -152,7 +152,7 @@ class TaskAutomationBot:
         except Exception as e:
             return {"error": f"Failed to install dependencies: {str(e)}"}
     
-    def format_code(self, data):
+    language = self.detect_language(project_path)
         """Format code in project"""
         project_path = Path(data.get('path', '.'))
         language = data.get('language', 'auto')
