@@ -391,7 +391,7 @@ CMD ["./main"]
 # Initialize bot
 docker_bot = DockerManagerBot()
 
-def process_command(command, data):
+def process_command(command, data): return getattr(docker_bot, f"{command}_container")(data) if command in ["run", "stop"] else docker_bot.build_image(data) if command == "build" else docker_bot.list_containers(data) if command == "list_containers" else docker_bot.list_images(data) if command == "list_images" else {"error": "Invalid command"}
     """Process Docker management commands"""
     if command == "build":
         return docker_bot.build_image(data)
