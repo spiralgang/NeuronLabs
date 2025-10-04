@@ -208,7 +208,7 @@ class TaskAutomationBot:
         except Exception as e:
             return {"error": f"Failed to format code: {str(e)}"}
     
-    language = self.detect_language(project_path)
+    def run_tests(self, data):
         """Run tests for project"""
         project_path = Path(data.get('path', '.'))
         language = data.get('language', 'auto')
