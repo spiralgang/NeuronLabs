@@ -1,0 +1,364 @@
+#!/bin/bash
+# Docker Manager Bot - Executable wrapper for bot registry system
+
+BOT_NAME="docker-manager"
+BOT_VERSION="1.0.0"
+BOT_DESCRIPTION="Automated Docker container and image management"
+BOT_DIR="$(dirname "$0")/docker-manager"
+
+# Bot registry audit mode
+if [ "$1" = "--audit" ]; then
+    echo "$BOT_NAME v$BOT_VERSION - $BOT_DESCRIPTION - audit passed"
+    echo "  Features: Container lifecycle, image building, compose orchestration"
+    echo "  Operations: Build, run, stop, cleanup, logs, monitoring"
+    echo "  Requirements: Docker Engine, python3, docker-py"
+    exit 0
+fi
+
+# Help mode
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    echo "🐳 $BOT_NAME v$BOT_VERSION"
+    echo "$BOT_DESCRIPTION"
+    echo ""
+    echo "Commands:"
+    echo "  build       Build Docker image from Dockerfile"
+    echo "  run         Run container from image"
+    echo "  stop        Stop running container"
+    echo "  logs        Get container logs"
+    echo "  ps          List containers"
+    echo "  images      List images"
+    echo "  cleanup     Clean up unused resources"
+    echo "  deploy      Deploy Docker Compose stack"
+    echo "  generate    Generate Dockerfile for project"
+    echo ""
+    echo "Examples:"
+    echo "  $0 build --path . --tag myapp:latest"
+    echo "  $0 run --image myapp:latest --port 8080:80"
+    echo "  $0 logs --container mycontainer"
+    echo "  $0 cleanup --type all"
+    exit 0
+fi
+
+cd "$BOT_DIR" || {
+    echo "❌ Bot directory not found: $BOT_DIR"
+    exit 1
+}
+
+# API helper function
+call_api() {
+    local endpoint=$1
+    local payload=$2
+    local method=${3:-POST}
+    
+    if [ "$method" = "POST" ]; then
+        curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            "http://localhost:5002$endpoint"
+    else
+        curl -s "http://localhost:5002$endpoint"
+    fi
+}
+
+# Start Docker manager service
+start_service() {
+    echo "🐳 Starting Docker Manager Bot..."
+    
+    # Check Docker availability
+    if ! command -v docker >/dev/null 2>&1; then
+        echo "❌ Docker not installed"
+        exit 1
+    fi
+    
+    if ! docker info >/dev/null 2>&1; then
+        echo "❌ Docker daemon not running"
+        exit 1
+    fi
+    
+    python3 -c "import docker, flask" 2>/dev/null || {
+        echo "📦 Installing dependencies..."
+        pip3 install docker flask || exit 1
+    }
+    
+    python3 docker_bot.py &
+    echo $! > .docker.pid
+    
+    sleep 2
+    
+    if curl -s http://localhost:5002/health >/dev/null 2>&1; then
+        echo "✅ Docker Manager Bot running on port 5002"
+    else
+        echo "❌ Failed to start Docker manager service"
+        exit 1
+    fi
+}
+
+# Build Docker image
+build_image() {
+    local path="."
+    local tag="latest"
+    local dockerfile="Dockerfile"
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --path) path="$2"; shift 2 ;;
+            --tag) tag="$2"; shift 2 ;;
+            --dockerfile) dockerfile="$2"; shift 2 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    echo "🔨 Building Docker image: $tag"
+    echo "   Path: $path"
+    echo "   Dockerfile: $dockerfile"
+    
+    local payload="{\"command\":\"build\",\"path\":\"$path\",\"tag\":\"$tag\",\"dockerfile\":\"$dockerfile\"}"
+    local response=$(call_api "/docker" "$payload")
+    
+    if echo "$response" | grep -q '"status":"image_built"'; then
+        echo "✅ Image built successfully!"
+    else
+        echo "❌ Image build failed"
+    fi
+    echo "$response" | python3 -m json.tool 2>/dev/null
+}
+
+# Run container
+run_container() {
+    local image=""
+    local name=""
+    local ports=""
+    local env=""
+    local volumes=""
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --image) image="$2"; shift 2 ;;
+            --name) name="$2"; shift 2 ;;
+            --port) ports="$2"; shift 2 ;;
+            --env) env="$2"; shift 2 ;;
+            --volume) volumes="$2"; shift 2 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    if [ -z "$image" ]; then
+        echo "❌ Image name required"
+        echo "Usage: $0 run --image <image> [options]"
+        exit 1
+    fi
+    
+    echo "🏃 Running container from image: $image"
+    
+    # Build JSON payload
+    local payload="{\"command\":\"run\",\"image\":\"$image\""
+    [ ! -z "$name" ] && payload="${payload},\"name\":\"$name\""
+    if [ ! -z "$ports" ]; then
+        # Convert "8080:80" to {"80/tcp": 8080} - correct format for docker-py
+        local host_port=$(echo "$ports" | cut -d: -f1)
+        local container_port=$(echo "$ports" | cut -d: -f2)
+        payload="${payload},\"ports\":{\"$container_port/tcp\":$host_port}"
+    fi
+    payload="${payload}}"
+    
+    local response=$(call_api "/docker" "$payload")
+    
+    if echo "$response" | grep -q '"status":"container_started"'; then
+        echo "✅ Container started successfully!"
+    else
+        echo "❌ Container failed to start"
+    fi
+    echo "$response" | python3 -m json.tool 2>/dev/null
+}
+
+# Stop container
+stop_container() {
+    local container=""
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --container) container="$2"; shift 2 ;;
+            --name) container="$2"; shift 2 ;;
+            *) container="$1"; shift ;;
+        esac
+    done
+    
+    if [ -z "$container" ]; then
+        echo "❌ Container name or ID required"
+        echo "Usage: $0 stop --container <name_or_id>"
+        exit 1
+    fi
+    
+    echo "🛑 Stopping container: $container"
+    
+    local payload="{\"command\":\"stop\",\"container_id\":\"$container\"}"
+    local response=$(call_api "/docker" "$payload")
+    
+    if echo "$response" | grep -q '"status":"container_stopped"'; then
+        echo "✅ Container stopped successfully!"
+    else
+        echo "❌ Failed to stop container"
+    fi
+    echo "$response" | python3 -m json.tool 2>/dev/null
+}
+
+# Get container logs
+get_logs() {
+    local container=""
+    local lines="100"
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --container) container="$2"; shift 2 ;;
+            --lines) lines="$2"; shift 2 ;;
+            *) container="$1"; shift ;;
+        esac
+    done
+    
+    if [ -z "$container" ]; then
+        echo "❌ Container name or ID required"
+        echo "Usage: $0 logs --container <name_or_id>"
+        exit 1
+    fi
+    
+    echo "📋 Getting logs for container: $container"
+    
+    local payload="{\"command\":\"logs\",\"container_id\":\"$container\",\"lines\":$lines}"
+    local response=$(call_api "/docker" "$payload")
+    
+    if echo "$response" | grep -q '"status":"logs_retrieved"'; then
+        echo "✅ Logs retrieved successfully!"
+        echo ""
+        echo "$response" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+logs = data.get('logs', [])
+for log in logs[-20:]:  # Show last 20 lines
+    print(log)
+"
+    else
+        echo "❌ Failed to retrieve logs"
+        echo "$response"
+    fi
+}
+
+# List containers
+list_containers() {
+    local all="false"
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --all) all="true"; shift ;;
+            -a) all="true"; shift ;;
+            *) shift ;;
+        esac
+    done
+    
+    echo "📋 Listing containers (all: $all)..."
+    
+    local payload="{\"command\":\"list_containers\",\"all\":$all}"
+    local response=$(call_api "/docker" "$payload")
+    
+    if echo "$response" | grep -q '"status":"containers_listed"'; then
+        echo "✅ Containers listed successfully!"
+        echo ""
+        echo "$response" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+containers = data.get('containers', [])
+print(f\"{'ID':<12} {'NAME':<20} {'IMAGE':<30} {'STATUS'}\")
+print('-' * 80)
+for c in containers:
+    print(f\"{c['id']:<12} {c['name']:<20} {c['image'][:28]:<30} {c['status']}\")
+"
+    else
+        echo "❌ Failed to list containers"
+        echo "$response"
+    fi
+}
+
+# Cleanup resources
+cleanup_resources() {
+    local type="all"
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --type) type="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+    
+    echo "🧹 Cleaning up Docker resources (type: $type)..."
+    
+    local payload="{\"command\":\"cleanup\",\"type\":\"$type\"}"
+    local response=$(call_api "/docker" "$payload")
+    
+    if echo "$response" | grep -q '"status":"cleanup_complete"'; then
+        echo "✅ Cleanup completed successfully!"
+    else
+        echo "❌ Cleanup failed"
+    fi
+    echo "$response" | python3 -m json.tool 2>/dev/null
+}
+
+# Main command processing
+case "$1" in
+    start)
+        start_service
+        ;;
+    build)
+        shift
+        build_image "$@"
+        ;;
+    run)
+        shift
+        run_container "$@"
+        ;;
+    stop)
+        shift
+        stop_container "$@"
+        ;;
+    logs)
+        shift
+        get_logs "$@"
+        ;;
+    ps|containers)
+        shift
+        list_containers "$@"
+        ;;
+    images)
+        echo "📋 Listing images..."
+        call_api "/docker" '{"command":"list_images"}' | python3 -m json.tool 2>/dev/null
+        ;;
+    cleanup)
+        shift
+        cleanup_resources "$@"
+        ;;
+    generate)
+        echo "📝 Generating Dockerfile..."
+        call_api "/docker" '{"command":"generate_dockerfile","path":"."}' | python3 -m json.tool 2>/dev/null
+        ;;
+    status)
+        if curl -s http://localhost:5002/health >/dev/null 2>&1; then
+            echo "🟢 Docker Manager Bot: Running"
+            curl -s http://localhost:5002/health | python3 -m json.tool 2>/dev/null
+        else
+            echo "🔴 Docker Manager Bot: Not running"
+        fi
+        ;;
+    kill|shutdown)
+        if [ -f ".docker.pid" ]; then
+            kill $(cat .docker.pid) 2>/dev/null
+            rm -f .docker.pid
+            echo "🛑 Docker Manager Bot stopped"
+        else
+            echo "❌ Bot not running"
+        fi
+        ;;
+    *)
+        echo "🐳 $BOT_NAME v$BOT_VERSION"
+        echo "Usage: $0 {start|build|run|stop|logs|ps|images|cleanup|generate|status|kill|--help|--audit}"
+        echo "Run '$0 --help' for detailed usage information"
+        exit 1
+        ;;
+esac

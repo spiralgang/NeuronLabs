@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  cloud-librarian:
+    build: .
+    container_name: cloud-librarian-bot
+    ports:
+      - "5000:5000"
+    environment:
+      - LIBRARY_MOUNT=/onedrive/library
+      - RCLONE_REMOTE=onedrive
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN:-}
+      - ENGINE_URL=http://localhost:5000
+    volumes:
+      # Mount your local rclone config into the container
+      # Update the path to your actual rclone config location
+      - ~/.config/rclone/rclone.conf:/root/.config/rclone/rclone.conf:ro
+      # Optional: Mount a local directory for library storage (if not using cloud)
+      - ./library:/onedrive/library
+    # privileged: true  # Required for FUSE mounting
+    devices:
+      - /dev/fuse:/dev/fuse
+    cap_add:
+      - SYS_ADMIN
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: Add a simple web UI for the librarian
+  librarian-ui:
+    image: nginx:alpine
+    container_name: librarian-ui
+    ports:
+      - "8080:80"
+    volumes:
+      - ./ui:/usr/share/nginx/html:ro
+    depends_on:
+      - cloud-librarian
+    restart: unless-stopped
